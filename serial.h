@@ -12,9 +12,10 @@
 
 sbit ioctl = P3^2;
 
-extern char read_buf[32];
-extern BYTE head;
-extern BYTE tail;
+#define SERIAL_BUF_LEN 32
+extern char read_buf[SERIAL_BUF_LEN];
+extern BYTE data_len;
+
 extern bit busy;
 
 #define SERIAL_STATE_IDLE      0
@@ -24,7 +25,7 @@ extern bit busy;
 extern BYTE serial_state;
 
 void serial_init(void);
-void SendString(char* s);
+void SendBuf(char s[],BYTE len);
 
 BYTE serial_consume_char(char* p);
 #endif
