@@ -12,6 +12,12 @@
 
 WORD gen_crc(BYTE const *buffer,BYTE buffer_length);
 
-void modbus_query_process(char msg[],BYTE len);
+extern BYTE modbus_address;
+extern BYTE (*modbus_read_input_cb)(WORD address,WORD num,WORD arr[]);
+extern BYTE (*modbus_read_hold_cb)(WORD address,WORD num,WORD arr[]);
+extern BYTE (*modbus_write_hold_cb)(WORD address,WORD num,WORD arr[]);
+extern BYTE (*modbus_read_BI_cb)(WORD address,WORD num,WORD arr[]);
+
+void modbus_process_msg(BYTE arr[],BYTE num,BYTE* out_len);
 
 #endif /* MODBUS_H_ */

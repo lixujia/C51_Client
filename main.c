@@ -26,19 +26,6 @@ sfr PCAPWM0 = 0xF2;
 sfr PCAPWM1 = 0xF3;
 
 
-void deal_data(void) {
-    if (0 == data_len)
-        return;
-
-    if (ADDRESS == read_buf[0]) {
-        // µÿ÷∑∆•≈‰
-        modbus_query_process(read_buf,data_len);
-    }
-
-	//SendBuf(read_buf,data_len);
-	data_len = 0;
-}
-
 void main() {
     /* pwm */
     CCON = 0;
@@ -57,12 +44,19 @@ void main() {
     EA = 1;                        // Open master interrupt switch.
 
     serial_init();
+    modbus_address = ADDRESS;
 
     CR = 1;                  // PCA timer start run
 
     while (1) {
         if (SERIAL_STATE_DATA_WAIT == serial_state) {
-            deal_data();
+            modbus_process_msg(read_buf,data_len,&data_len);
+
+            if (0!= data_len) {
+                SendBuf(read_buf,data_len);
+            }
+
+            data_len = 0;
         }
     }
 }
