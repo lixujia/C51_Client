@@ -6,7 +6,7 @@
 
 sfr AUXR = 0x8e;
 #define T1MS (65536-FOSC/1000) //1ms timer calculation method in 1T mode
-char read_buf[SERIAL_BUF_LEN];
+char xdata read_buf[SERIAL_BUF_LEN];
 BYTE data_len = 0;
 
 BYTE serial_state = 0; // @see SERIAL_STATE_... 

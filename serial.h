@@ -12,8 +12,8 @@
 
 sbit ioctl = P3^2;
 
-#define SERIAL_BUF_LEN 32
-extern char read_buf[SERIAL_BUF_LEN];
+#define SERIAL_BUF_LEN 128
+extern char xdata read_buf[SERIAL_BUF_LEN];
 extern BYTE data_len;
 
 extern bit busy;
