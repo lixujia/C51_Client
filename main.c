@@ -24,22 +24,60 @@ sfr CCAP1H = 0xFB;
 sfr PCAPWM0 = 0xF2;
 sfr PCAPWM1 = 0xF3;
 
-char xdata test_buf[] = "hello!";
-char xdata test_buf2[] = "world!";
+WORD xdata brightness = 0x800F;
 
-sbit led2 = P1^1;
+BYTE read_input_cb(WORD address, WORD num, WORD arr[])
+{
+    if (1 != address || 1 != num) {
+        return 0xFF;
+    }
+
+    arr[0] = modbus_htons(MODBUS_FUNCTION_LIGHT);
+
+    return 0;
+}
+
+BYTE read_hold_cb(WORD address,WORD num,WORD arr[])
+{
+    if (1 != address || 1 != num) {
+        return 0xFF;
+    }
+
+    arr[0] = modbus_htons(brightness);
+
+    return 0;
+}
+
+#if 0
+BYTE write_hold_cb(WORD address,WORD num,WORD arr[])
+{
+    if (1 != address || 1 != num) {
+        return 0xFF;
+    }
+
+    brightness = modbus_htons(arr[0]);
+    CCAP0H = brightness >> 8;
+    CCAP0L = brightness & 0xFF;
+
+    return 0;
+}
+#endif
+
+sbit led1 = P1 ^ 0;
+sbit led2 = P1 ^ 1;
 
 void main() {
     WORD out_len = 0;
-	BYTE input = 0;
-	BYTE light = 0;
 
+		led2 = 0;
     /* pwm */
     CCON = 0;
     CL = 0;
     CH = 0;
     CMOD = 0x02;
-    CCAP0H = CCAP0L = 0x20;
+    CCAP0H = brightness >> 8;
+    CCAP0L = brightness & 0xFF;
+
     CCAPM0 = 0x42;
 
     ioctl = 0;
@@ -52,17 +90,17 @@ void main() {
 
     serial_init();
     modbus_address = ADDRESS;
+    modbus_read_input_cb = read_input_cb;
+    modbus_read_hold_cb  = read_hold_cb;
+    //modbus_write_hold_cb = write_hold_cb;
 
     CR = 1;                  // PCA timer start run
 
-    SendBuf(test_buf,5);
-
+    led1 = 0;
     while (1) {
         if (SERIAL_STATE_DATA_WAIT == serial_state) {
-            led2 = light;
-            light = !light;
 
-            P2 = data_len;
+            //P2 = data_len;
             out_len = modbus_process_msg(read_buf,data_len);
 
             if (0 != out_len) {

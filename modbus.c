@@ -69,11 +69,12 @@ WORD modbus_process_read(BYTE arr[], BYTE (*cb)(WORD, WORD, WORD*), BYTE (*lengt
     }
 
     read_num = arr[5];
-    if (0 != cb((WORD) arr[3], (WORD) read_num, (WORD*) arr + 3)) {
+    if (0 != cb((WORD) arr[3], (WORD) read_num, (WORD*)(arr + 3))) {
         return modbus_fault_msg(arr);
     }
 
     data_len = length_count(read_num);
+    arr[2] = data_len;
 
     crc = gen_crc(arr, data_len + 3);
     arr[data_len + 3] = crc >> 8;
@@ -82,15 +83,25 @@ WORD modbus_process_read(BYTE arr[], BYTE (*cb)(WORD, WORD, WORD*), BYTE (*lengt
     return data_len + 5;
 }
 
-sbit led1 = P1 ^ 0;
-sbit led2 = P1 ^ 1;
+#if 0
+WORD modbus_process_write(BYTE arr[],BYTE (*cb)(WORD, WORD, WORD*)) {
+    if (NULL == cb) {
+        return modbus_fault_msg(arr);
+    }
+
+    if (0 != cb((WORD)arr[3],1,(WORD*)(arr + 3))) {
+        return modbus_fault_msg(arr);
+    }
+
+    return 8;
+}
+#endif
 
 WORD modbus_process_msg(BYTE arr[], BYTE num) {
     WORD crc = 0;
     BYTE (*cb)(WORD, WORD, WORD[]) = NULL;
 
     if (7 > num || arr[0] != modbus_address) {
-        led1 = 0;
         return 0;
     }
 
@@ -115,9 +126,19 @@ WORD modbus_process_msg(BYTE arr[], BYTE num) {
         return modbus_process_read(arr, modbus_read_input_cb,
                 modbus_read_ai_length);
     case 6:
-        //cb = modbus_write_hold_cb;
-        //break;
+        //return modbus_process_write(arr,modbus_write_hold_cb);
     default:
         return modbus_fault_msg(arr);
     }
+}
+
+WORD modbus_htons(WORD val)
+{
+    WORD xdata endian = 0x00FF;
+
+    if (0 == *((BYTE*)&endian)) {
+        return val;
+    }
+
+    return ((val >> 8) & 0x00FF) + ((val << 8) & 0xFF00);
 }
