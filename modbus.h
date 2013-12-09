@@ -18,6 +18,6 @@ extern BYTE (*modbus_read_hold_cb)(WORD address,WORD num,WORD arr[]);
 extern BYTE (*modbus_write_hold_cb)(WORD address,WORD num,WORD arr[]);
 extern BYTE (*modbus_read_BI_cb)(WORD address,WORD num,WORD arr[]);
 
-void modbus_process_msg(BYTE arr[],BYTE num,BYTE* out_len);
+WORD modbus_process_msg(BYTE arr[],BYTE num);
 
 #endif /* MODBUS_H_ */

@@ -5,7 +5,7 @@
 #include "config.h"
 
 sfr AUXR = 0x8e;
-#define T1MS (65536-FOSC/1000) //1ms timer calculation method in 1T mode
+#define T5MS (65536-FOSC/1000 * 5) //1ms timer calculation method in 1T mode
 char xdata read_buf[SERIAL_BUF_LEN];
 BYTE data_len = 0;
 
@@ -13,24 +13,26 @@ BYTE serial_state = 0; // @see SERIAL_STATE_...
 
 bit busy = 0;
 
-#define READ_TIMEOUT_MS 5 
-WORD to_ms = 0;
+//#define READ_TIMEOUT_MS 1
+//WORD to_ms = 0;
 
 void t0_int()
 #ifndef ECLIPSE_EDITOR
 interrupt 1
 #endif
 {
-    if (to_ms < READ_TIMEOUT_MS) {
-        ++to_ms;
-        return;
-    }
+//    if (to_ms < READ_TIMEOUT_MS) {
+//        ++to_ms;
+//        return;
+//    }
 
     TR0 = 0;
 
     serial_state = SERIAL_STATE_DATA_WAIT;
 }
 
+
+		
 /*
  * UART interrupt service routine
  */
@@ -39,13 +41,13 @@ void uart_isr()
 interrupt 4 using 1
 #endif
 {
-
     if (RI) {
+        //tmp = SBUF;
         RI = 0;
+
         //TH0 = TL0 = 0xF0;
-        TL0 = T1MS;//initial timer0 low byte
-        TH0 = T1MS >> 8;//initial timer0 high byte
-        to_ms = 0;
+        TL0 = T5MS;//initial timer0 low byte
+        TH0 = T5MS >> 8;//initial timer0 high byte
 
         if (SERIAL_STATE_RECEIVING != serial_state) {
             TR0 = 1;
@@ -86,9 +88,10 @@ void SendData(BYTE dat) {
 #endif
     }
 
+    SBUF = ACC;
     ioctl = 1;
     busy = 1;
-    SBUF = ACC;
+
 }
 
 void SendBuf(char s[],BYTE len) {

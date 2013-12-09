@@ -5,7 +5,6 @@
 #include "modbus.h"
 #include "config.h"
 
-#define ADDRESS 1
 
 /* Declare SFR associated with the PCA */
 sfr CCON = 0xD8;
@@ -25,8 +24,16 @@ sfr CCAP1H = 0xFB;
 sfr PCAPWM0 = 0xF2;
 sfr PCAPWM1 = 0xF3;
 
+char xdata test_buf[] = "hello!";
+char xdata test_buf2[] = "world!";
+
+sbit led2 = P1^1;
 
 void main() {
+    WORD out_len = 0;
+	BYTE input = 0;
+	BYTE light = 0;
+
     /* pwm */
     CCON = 0;
     CL = 0;
@@ -48,15 +55,24 @@ void main() {
 
     CR = 1;                  // PCA timer start run
 
+    SendBuf(test_buf,5);
+
     while (1) {
         if (SERIAL_STATE_DATA_WAIT == serial_state) {
-            modbus_process_msg(read_buf,data_len,&data_len);
+            led2 = light;
+            light = !light;
 
-            if (0!= data_len) {
-                SendBuf(read_buf,data_len);
+            P2 = data_len;
+            out_len = modbus_process_msg(read_buf,data_len);
+
+            if (0 != out_len) {
+                SendBuf(read_buf,out_len);
+                //SendBuf(test_buf,6);
+                //SendBuf(test_buf2,6);
             }
 
             data_len = 0;
+            serial_state = SERIAL_STATE_IDLE;
         }
     }
 }
