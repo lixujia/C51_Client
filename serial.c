@@ -1,13 +1,28 @@
 #include <REG51.H>
 #include <INTRINS.H>
+#include <STDLIB.H>
+#include <STRING.H>
 
 #include "serial.h"
 #include "config.h"
 
 sfr AUXR = 0x8e;
 #define T5MS (65536-FOSC/1000 * 5) //1ms timer calculation method in 1T mode
-char xdata read_buf[SERIAL_BUF_LEN];
-BYTE data_len = 0;
+
+BYTE xdata malloc_mempool [256];
+
+#if 0
+extern BYTE serial_buf[SERIAL_BUF_LEN];
+extern BYTE  deal_buf[SERIAL_BUF_LEN];
+#else
+BYTE* serial_buf = NULL;
+BYTE*   deal_buf = NULL;
+#endif
+
+BYTE serial_len = SERIAL_BUF_LEN;
+BYTE  deal_len  = SERIAL_BUF_LEN;
+
+
 
 BYTE serial_state = 0; // @see SERIAL_STATE_... 
 
@@ -54,12 +69,12 @@ interrupt 4 using 1
             serial_state = SERIAL_STATE_RECEIVING;
         }
 
-        if (SERIAL_BUF_LEN == data_len) {
+        if (SERIAL_BUF_LEN == serial_len) {
             // 队列满，丢弃数据
             ;
         }
         else {
-            read_buf[data_len++] = SBUF;
+            serial_buf[serial_len++] = SBUF;
         }
     }
 
@@ -91,10 +106,9 @@ void SendData(BYTE dat) {
     SBUF = ACC;
     ioctl = 1;
     busy = 1;
-
 }
 
-void SendBuf(char s[],BYTE len) {
+void SendBuf(char* s,BYTE len) {
     BYTE i = 0;
 
     serial_state = SERIAL_STATE_SENDING;
@@ -116,4 +130,10 @@ void serial_init(void) {
     AUXR = 0x80; //timer0 work in 1T mode
     TMOD |= 0x01;
     ET0 = 1; //enable timer0 interrupt
+
+    init_mempool (&malloc_mempool, sizeof(malloc_mempool));
+    serial_buf = malloc(SERIAL_BUF_LEN);
+    deal_buf   = malloc(SERIAL_BUF_LEN);
+    serial_len = SERIAL_BUF_LEN;
+    deal_len   = SERIAL_BUF_LEN;
 }

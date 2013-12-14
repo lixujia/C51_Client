@@ -17,12 +17,12 @@
 WORD gen_crc(BYTE const *buffer,BYTE buffer_length);
 
 extern BYTE modbus_address;
-extern BYTE (*modbus_read_input_cb)(WORD address,WORD num,WORD arr[]);
-extern BYTE (*modbus_read_hold_cb)(WORD address,WORD num,WORD arr[]);
-extern BYTE (*modbus_write_hold_cb)(WORD address,WORD num,WORD arr[]);
-extern BYTE (*modbus_read_BI_cb)(WORD address,WORD num,WORD arr[]);
+extern BYTE modbus_read_input_cb (WORD address,WORD num,WORD* arr);
+extern BYTE modbus_read_hold_cb  (WORD address,WORD num,WORD* arr);
+extern BYTE modbus_write_hold_cb (WORD address,WORD num,WORD* arr);
+//extern BYTE modbus_read_BI_cb    (WORD address,WORD num,WORD* arr);
 
-WORD modbus_process_msg(BYTE arr[],BYTE num);
+WORD modbus_process_msg(BYTE* arr,BYTE num);
 
 WORD modbus_htons(WORD val);
 #define modbus_ntohs modbus_htons

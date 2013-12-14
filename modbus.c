@@ -7,16 +7,12 @@
 
 #include <REG51.H>
 #include <INTRINS.H>
+#include <STRING.H>
 
 #include "config.h"
 #include "modbus.h"
 
 BYTE modbus_address = ADDRESS;
-
-BYTE (*modbus_read_input_cb)(WORD address, WORD num, WORD arr[]) = NULL;
-BYTE (*modbus_read_hold_cb)(WORD address, WORD num, WORD arr[]) = NULL;
-BYTE (*modbus_write_hold_cb)(WORD address, WORD num, WORD arr[]) = NULL;
-BYTE (*modbus_read_BI_cb)(WORD address, WORD num, WORD arr[]) = NULL;
 
 WORD gen_crc(BYTE const *buffer, BYTE buffer_length) {
     BYTE c, treat, bcrc;
@@ -39,9 +35,9 @@ WORD gen_crc(BYTE const *buffer, BYTE buffer_length) {
     return wcrc;
 }
 
-WORD modbus_fault_msg(BYTE arr[]) {
+WORD modbus_fault_msg(BYTE* arr) {
     WORD  crc = 0;
-
+	
     arr[1] += 0x80;
 
     crc = gen_crc(arr, 2);
@@ -59,23 +55,24 @@ BYTE modbus_read_ai_length(BYTE read_num) {
     return read_num << 1;
 }
 
-WORD modbus_process_read(BYTE arr[], BYTE (*cb)(WORD, WORD, WORD*), BYTE (*length_count)(BYTE)) {
+sbit led1 = P1 ^ 0;
+WORD tmp[16];
+
+WORD modbus_process_read(BYTE* arr) {
     WORD  crc = 0;
     BYTE  read_num = 0;
     BYTE  data_len = 0;
 
-    if (NULL == cb || NULL == length_count) {
-        P2 = 2;
-        return modbus_fault_msg(arr);
-    }
-
     read_num = arr[5];
-    if (0 != cb((WORD) arr[3], (WORD) read_num, (WORD*)(arr + 3))) {
-        P2 = 3;
+
+    if (0x03 == arr[1] && 0 != modbus_read_hold_cb(arr[3],read_num,(WORD*)(arr + 3))) {
+        return modbus_fault_msg(arr);
+    }
+    else if (0x04 == arr[1] && 0 != modbus_read_input_cb(arr[3],read_num,(WORD*)(arr + 3))) {
         return modbus_fault_msg(arr);
     }
 
-    data_len = length_count(read_num);
+    data_len = modbus_read_ai_length(read_num);
     arr[2] = data_len;
 
     crc = gen_crc(arr, data_len + 3);
@@ -85,13 +82,12 @@ WORD modbus_process_read(BYTE arr[], BYTE (*cb)(WORD, WORD, WORD*), BYTE (*lengt
     return data_len + 5;
 }
 
-WORD modbus_process_write(BYTE arr[],BYTE (*cb)(WORD, WORD, WORD*)) {
+WORD modbus_process_write(BYTE* arr,BYTE (*cb)(WORD, WORD, WORD*)) {
     WORD address = 0;
     WORD number = 0;
     WORD crc = 0;
 
     if (NULL == cb) {
-        P2 = 4;
         return modbus_fault_msg(arr);
     }
 
@@ -100,7 +96,6 @@ WORD modbus_process_write(BYTE arr[],BYTE (*cb)(WORD, WORD, WORD*)) {
         address = modbus_ntohs(*((WORD*)(arr + 2)));
 
         if (0 != cb(address,1,(WORD*)(arr + 4))) {
-            P2 = 5;
             return modbus_fault_msg(arr);
         }
 
@@ -113,7 +108,6 @@ WORD modbus_process_write(BYTE arr[],BYTE (*cb)(WORD, WORD, WORD*)) {
         number  = modbus_ntohs(*((WORD*)(arr + 4)));
 
         if (0 != cb(address,number,(WORD*)(arr + 7))) {
-            P2 = 9;
             return modbus_fault_msg(arr);
         }
 
@@ -126,8 +120,9 @@ WORD modbus_process_write(BYTE arr[],BYTE (*cb)(WORD, WORD, WORD*)) {
     return modbus_fault_msg(arr);
 }
 
-WORD modbus_process_msg(BYTE arr[], BYTE num) {
+WORD modbus_process_msg(BYTE* arr, BYTE num) {
     WORD crc = 0;
+    //WORD iRet = 0;
 
     if (7 > num || arr[0] != modbus_address) {
         return 0;
@@ -140,25 +135,17 @@ WORD modbus_process_msg(BYTE arr[], BYTE num) {
     }
 
     if (0 != arr[2]) {
-        P2 = 6;
         return modbus_fault_msg(arr);
     }
 
     switch (arr[1]) {
-    case 2:
-        return modbus_process_read(arr, modbus_read_BI_cb,
-                modbus_read_bi_length);
     case 3:
-        return modbus_process_read(arr, modbus_read_hold_cb,
-                modbus_read_ai_length);
     case 4:
-        return modbus_process_read(arr, modbus_read_input_cb,
-                modbus_read_ai_length);
+        return modbus_process_read(arr);
     case 6:
     case 16:
         return modbus_process_write(arr,modbus_write_hold_cb);
     default:
-        P2 = 7;
         return modbus_fault_msg(arr);
     }
 }

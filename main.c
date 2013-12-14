@@ -1,5 +1,6 @@
 #include <REG51.H>
 #include <INTRINS.H>
+#include <STRING.H>
 
 #include "serial.h"
 #include "modbus.h"
@@ -24,15 +25,14 @@ sfr CCAP0H = 0xFA;
 //sfr PCAPWM0 = 0xF2;
 //sfr PCAPWM1 = 0xF3;
 
-WORD xdata out_len = 0;
-WORD xdata brightness_t = 0x0000;
-WORD xdata brightness_c = 0x0000;
-WORD xdata brightness_l = 0x0000;
-WORD xdata brightness_s = 0x0100;
-sbit led1 = P1 ^ 0;
-sbit led2 = P1 ^ 1;
+WORD  out_len = 0;
+WORD  counter = 0x0000;
 
-BYTE read_input_cb(WORD address, WORD num, WORD arr[])
+WORD  current = 0xFFFF;
+WORD  target  = 0xFFFF;
+WORD  step    = 0xFFFF;
+
+BYTE modbus_read_input_cb(WORD address, WORD num, WORD* arr)
 {
     if (1 != address || 1 != num) {
         return 0xFF;
@@ -43,48 +43,68 @@ BYTE read_input_cb(WORD address, WORD num, WORD arr[])
     return 0;
 }
 
-BYTE read_hold_cb(WORD address,WORD num,WORD arr[])
+BYTE modbus_read_hold_cb(WORD address,WORD num,WORD* arr)
 {
-    if (1 != address || 1 != num) {
+    BYTE i = 0;
+
+    if (address + num > 4 || address < 1) {
         return 0xFF;
     }
 
-    arr[0] = modbus_htons(brightness_c);
+    for (i = 0; i < num; ++i) {
+        switch (address + i) {
+        case 1:
+            arr[i] = modbus_htons(current);
+            break;
+        case 2:
+            arr[i] = modbus_htons(target);
+            break;
+        case 3:
+            arr[i] = modbus_htons(step);
+            break;
+        default:
+            return 0xFF;
+        }
+    }
 
     return 0;
 }
 
-BYTE write_hold_cb(WORD address,WORD num,WORD arr[])
+BYTE modbus_write_hold_cb(WORD address,WORD num,WORD* arr)
 {
-    if (address + num > 3) {
+    BYTE i = 0;
+
+    if (address + num > 4 || address < 1) {
         return 0xFF;
     }
 
-    if (1 == address) {
-        brightness_t = modbus_ntohs(arr[0]);
-
-        if (2 == num) {
-            brightness_s = modbus_ntohs(arr[1]);
+    for (i = 0; i < num; ++i) {
+        switch (address + i) {
+        case 1:
+            current = modbus_ntohs(arr[i]);
+            break;
+        case 2:
+            target = modbus_ntohs(arr[i]);
+            break;
+        case 3:
+            step = modbus_ntohs(arr[i]);
+            break;
+        default:
+            return 0xFF;
         }
-    }
-    else if (2 == address) {
-        brightness_s = modbus_ntohs(arr[0]);
     }
 
     return 0;
 }
 
 void main() {
-    led2 = 0;
-
     /* pwm */
     CCON = 0;
     CL = 0;
     CH = 0;
     CMOD = 0x02;
 
-    CCAP0H = brightness_t >> 8;
-    CCAP0L = brightness_t & 0xFF;
+    CCAP0H = CCAP0L = 0xFF;
 	
     CCAPM0 = 0x42;
 
@@ -97,45 +117,46 @@ void main() {
     EA = 1;                        // Open master interrupt switch.
 
     serial_init();
-    modbus_address = ADDRESS;
-    modbus_read_input_cb = read_input_cb;
-    modbus_read_hold_cb  = read_hold_cb;
-    modbus_write_hold_cb = write_hold_cb;
 
     CR = 1;                  // PCA timer start run
 
-    led1 = 0;
     while (1) {
+        //memcpy(serial_buf,"\x01\x03\x00\x01\x00\x03\xAC\x21",8);
+        //serial_len = 8;
+        //serial_state = SERIAL_STATE_DATA_WAIT;
+
         if (SERIAL_STATE_DATA_WAIT == serial_state) {
-            out_len = modbus_process_msg(read_buf,data_len);
+            deal_len = serial_len;
+            memcpy(deal_buf,serial_buf,deal_len);
+            out_len = modbus_process_msg(deal_buf,deal_len);
 
             if (0 != out_len) {
-                SendBuf(read_buf,out_len);
+                SendBuf(deal_buf,out_len);
             }
 
-            data_len = 0;
+            serial_len = 0;
             serial_state = SERIAL_STATE_IDLE;
         }
-        else if (brightness_c != brightness_t){
-            if (brightness_c < brightness_t) {
-                if (0xFFFF - brightness_l < brightness_s) {
-                    ++brightness_c;
+        else if (current != target){
+            if (current < target) {
+                if (0xFFFF - counter < step) {
+                    ++current;
 
-                    CCAP0H = brightness_c >> 8;
-                    CCAP0L = brightness_c & 0xFF;
+                    CCAP0H = current >> 8;
+                    CCAP0L = current & 0xFF;
                 }
 
-                brightness_l += brightness_s;
+                counter += step;
             }
-            else if (brightness_c > brightness_t) {
-                if (brightness_l < brightness_s) {
-                    --brightness_c;
+            else if (current > target) {
+                if (counter < step) {
+                    --current;
 
-                    CCAP0H = brightness_c >> 8;
-                    CCAP0L = brightness_c & 0xFF;
+                    CCAP0H = current >> 8;
+                    CCAP0L = current & 0xFF;
                 }
 
-                brightness_l -= brightness_s;
+                counter -= step;
             }
         }
     }
