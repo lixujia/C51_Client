@@ -159,5 +159,12 @@ void main() {
                 counter -= step;
             }
         }
+
+        if (0xFFFF == current) {
+            CR = 0;
+        }
+        else {
+            CR = 1;
+        }
     }
 }

@@ -47,9 +47,11 @@ WORD modbus_fault_msg(BYTE* arr) {
     return 4;
 }
 
+/*
 BYTE modbus_read_bi_length(BYTE read_num) {
     return read_num >> 3;
 }
+*/
 
 BYTE modbus_read_ai_length(BYTE read_num) {
     return read_num << 1;
@@ -82,20 +84,16 @@ WORD modbus_process_read(BYTE* arr) {
     return data_len + 5;
 }
 
-WORD modbus_process_write(BYTE* arr,BYTE (*cb)(WORD, WORD, WORD*)) {
+WORD modbus_process_write(BYTE* arr) {
     WORD address = 0;
     WORD number = 0;
     WORD crc = 0;
-
-    if (NULL == cb) {
-        return modbus_fault_msg(arr);
-    }
 
     // Ô¤ÖÃµ¥¸ö¼Ä´æÆ÷
     if (6 == arr[1]) {
         address = modbus_ntohs(*((WORD*)(arr + 2)));
 
-        if (0 != cb(address,1,(WORD*)(arr + 4))) {
+        if (0 != modbus_write_hold_cb(address,1,(WORD*)(arr + 4))) {
             return modbus_fault_msg(arr);
         }
 
@@ -107,7 +105,7 @@ WORD modbus_process_write(BYTE* arr,BYTE (*cb)(WORD, WORD, WORD*)) {
         address = modbus_ntohs(*((WORD*)(arr + 2)));
         number  = modbus_ntohs(*((WORD*)(arr + 4)));
 
-        if (0 != cb(address,number,(WORD*)(arr + 7))) {
+        if (0 != modbus_write_hold_cb(address,number,(WORD*)(arr + 7))) {
             return modbus_fault_msg(arr);
         }
 
@@ -144,7 +142,7 @@ WORD modbus_process_msg(BYTE* arr, BYTE num) {
         return modbus_process_read(arr);
     case 6:
     case 16:
-        return modbus_process_write(arr,modbus_write_hold_cb);
+        return modbus_process_write(arr);
     default:
         return modbus_fault_msg(arr);
     }
